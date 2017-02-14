@@ -8,6 +8,38 @@ DutyModifier EQU #1
 MaxBrightness EQU #100
 
 
+
+    LDR R1, =SYSCTL_RCGCGPIO_R      ; 1) activate clock for Port E and F
+    LDR R0, [R1]                 
+    ORR R0, R0, #0x30               ; set bit 4 and 5 to turn on clock
+    STR R0, [R1]                  
+    NOP
+    NOP                             ; allow time for clock to finish      
+		BL  TExaS_Init ; voltmeter, scope on PD3
+		CPSIE  I    ; TExaS voltmeter, scope runs on interrupts
+	  	
+    LDR R1, =GPIO_PORTE_DIR_R       ; 5) set direction register
+    MOV R0,#0x01                    ; PE0 = output, PE1 = input
+    STR R0, [R1]                    
+    LDR R1, =GPIO_PORTE_AFSEL_R     ; 6) regular port function
+    MOV R0, #0                      ; 0 means disable alternate function 
+    STR R0, [R1]                                 
+    LDR R1, =GPIO_PORTE_DEN_R       ; 7) enable Port F digital port
+    MOV R0, #0x03                   ; 1 means enable digital I/O
+    STR R0, [R1]
+    LDR R1, =GPIO_PORTF_DIR_R       ; 5) set direction register
+    MOV R0,#0x00                    ; PF0 and PF7-4 input, PF3-1 output
+    STR R0, [R1]                    
+    LDR R1, =GPIO_PORTF_AFSEL_R     ; 6) regular port function
+    MOV R0, #0                      ; 0 means disable alternate function 
+    STR R0, [R1]                    
+    LDR R1, =GPIO_PORTF_PUR_R       ; pull-up resistors for PF4,PF0
+    MOV R0, #0x10                   ; enable weak pull-up on PF0 and PF4
+    STR R0, [R1]              
+    LDR R1, =GPIO_PORTF_DEN_R       ; 7) enable Port F digital port
+    MOV R0, #0x10                   ; 1 means enable digital I/O
+    STR R0, [R1]
+
 Top NOP
 
 
