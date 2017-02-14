@@ -76,6 +76,26 @@ newTest ADD R2, R5, #0
 NoReset NOP
 
 	  B    loop
+	  
+; subroutines
+	 
+LEDon	LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
+	LDR R0, [R1]
+	ORR R0, #0x01
+	STR R0, [R1]
+	
+LEDoff	LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
+	LDR R0, [R1]
+	AND R0, 0xFF0
+	STR R0, [R1]
+	
+switchf	LDR R1, =GPIO_PORTF_DATA_R	; find status of switchf for breathing subroutine
+	LDR R0, [R1]
+	AND R0, #0x10
+	LSR R0, #4
+	EOR R0, #0x01
+	(store value of switch f wherever we want it to go)
+
 
       ALIGN      ; make sure the end of this section is aligned
       END        ; end of file
