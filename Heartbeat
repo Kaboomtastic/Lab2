@@ -1,102 +1,131 @@
-I took some shortcuts in writing this but the basic logic should be sound
+
+
+GPIO_PORTE_DATA_R  EQU 0x400243FC
+GPIO_PORTE_DIR_R   EQU 0x40024400
+GPIO_PORTE_AFSEL_R EQU 0x40024420
+GPIO_PORTE_DEN_R   EQU 0x4002451C
+; PortF device registers
+GPIO_PORTF_DATA_R  EQU 0x400253FC
+GPIO_PORTF_DIR_R   EQU 0x40025400
+GPIO_PORTF_AFSEL_R EQU 0x40025420
+GPIO_PORTF_PUR_R   EQU 0x40025510
+GPIO_PORTF_DEN_R   EQU 0x4002551C
+
+SYSCTL_RCGCGPIO_R  EQU 0x400FE608
+
+IMPORT  TExaS_Init
+AREA    |.text|, CODE, READONLY, ALIGN=2
+THUMB
+EXPORT  Start
 Start
 
-	LDR R1, =SYSCTL_RCGCGPIO_R      ; 1) activate clock for Port E and F
-	LDR R0, [R1]              
-	ORR R0, R0, #0x30               ; set bit 4 and 5 to turn on clock
-	STR R0, [R1]                  
-	NOP
-	NOP                             ; allow time for clock to finish    
- ; TExaS_Init sets bus clock at 80 MHz
-      BL  TExaS_Init ; voltmeter, scope on PD3
-      CPSIE  I    ; TExaS voltmeter, scope runs on interrupts
-	
-	LDR R1, =GPIO_PORTE_DIR_R       ; 5) set direction register
-	MOV R0,#0x01                    ; PE0 = output, PE1 = input
-	STR R0, [R1]                    
-	LDR R1, =GPIO_PORTE_AFSEL_R     ; 6) regular port function
-	MOV R0, #0                      ; 0 means disable alternate function 
-	STR R0, [R1]                                 
-	LDR R1, =GPIO_PORTE_DEN_R       ; 7) enable Port F digital port
-	MOV R0, #0x03                   ; 1 means enable digital I/O
-	STR R0, [R1]
-	LDR R1, =GPIO_PORTF_DIR_R       ; 5) set direction register
-	MOV R0,#0x00                    ; PF0 and PF7-4 input, PF3-1 output
-	STR R0, [R1]                    
-	LDR R1, =GPIO_PORTF_AFSEL_R     ; 6) regular port function
-	MOV R0, #0                      ; 0 means disable alternate function 
-	STR R0, [R1]                    
-	LDR R1, =GPIO_PORTF_PUR_R       ; pull-up resistors for PF4,PF0
-	MOV R0, #0x10                   ; enable weak pull-up on PF0 and PF4
-	STR R0, [R1]              
-	LDR R1, =GPIO_PORTF_DEN_R       ; 7) enable Port F digital port
-	MOV R0, #0x10                   ; 1 means enable digital I/O
-	STR R0, [R1]
-	LDR R1, =GPIO_PORTE_DATA_R
-loop  
-  
-	LDR R7, =Cycles
-	LDR R6, [R7]  ;R6 = Cycles
-	LDR R7, =DUTY
-	LDR R5, [R7] ; R5 = DUTY
-	LDR R7, =DutyModifier
-	LDR R4, [R7] ;R4 = DutyModifier
-	LDR R7, =Counter
-	LDR R3, [R7] ; R3 = Counter
-	LDR R7, =MaxBrightness
-	LDR R8, [R7]
-	LDR R1, =GPIO_PORTE_DATA_R
-	LDR R0, =GPIO_PORTF_DATA_R
- 
-	
-	ADD R2, R3, R5 ;Duty goes from 0 to max brightness so if duty is greater than counter then it's on this cycle
-	BMI Negative
-	LED on
-	B Positive
-	Negative NOP
-	LED off
-	Positive NOP
- 
- 
-	ADD R3, R3, #-1
-	ADD R2, R7, Counter
-	BPL NoReset
-	MOV R3, #0
-	ADD R5, R5, R7
- 
-	ADD R2, R5, R8
-	CBNZ newTest
-	EOR R4, R4, #-1
-	ADD R4, R4, #1
-	B NoReset
-newTest ADD R2, R5, #0
-	BMI NoReset
-	EOR R4, R4, #-1
-	ADD R4, R4, #1
-NoReset NOP
+LDR R1, =SYSCTL_RCGCGPIO_R      ; 1) activate clock for Port E and F
+LDR R0, [R1]
+ORR R0, R0, #0x30               ; set bit 4 and 5 to turn on clock
+STR R0, [R1]
+NOP
+NOP                             ; allow time for clock to finish
+; TExaS_Init sets bus clock at 80 MHz
+BL  TExaS_Init ; voltmeter, scope on PD3
+CPSIE  I    ; TExaS voltmeter, scope runs on interrupts
 
-	  B    loop
-	  
-; subroutines
-	 
-LEDon	LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
-	LDR R0, [R1]
-	ORR R0, #0x01
-	STR R0, [R1]
-	
-LEDoff	LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
-	LDR R0, [R1]
-	AND R0, 0xFF0
-	STR R0, [R1]
-	
-switchf	LDR R1, =GPIO_PORTF_DATA_R	; find status of switchf for breathing subroutine
-	LDR R0, [R1]
-	AND R0, #0x10
-	LSR R0, #4
-	EOR R0, #0x01
-	(store value of switch f wherever we want it to go)
+LDR R1, =GPIO_PORTE_DIR_R       ; 5) set direction register
+MOV R0,#0x01                    ; PE0 = output, PE1 = input
+STR R0, [R1]
+LDR R1, =GPIO_PORTE_AFSEL_R     ; 6) regular port function
+MOV R0, #0                      ; 0 means disable alternate function
+STR R0, [R1]
+LDR R1, =GPIO_PORTE_DEN_R       ; 7) enable Port F digital port
+MOV R0, #0x03                   ; 1 means enable digital I/O
+STR R0, [R1]
+LDR R1, =GPIO_PORTF_DIR_R       ; 5) set direction register
+MOV R0,#0x00                    ; PF0 and PF7-4 input, PF3-1 output
+STR R0, [R1]
+LDR R1, =GPIO_PORTF_AFSEL_R     ; 6) regular port function
+MOV R0, #0                      ; 0 means disable alternate function
+STR R0, [R1]
+LDR R1, =GPIO_PORTF_PUR_R       ; pull-up resistors for PF4,PF0
+MOV R0, #0x10                   ; enable weak pull-up on PF0 and PF4
+STR R0, [R1]
+LDR R1, =GPIO_PORTF_DEN_R       ; 7) enable Port F digital port
+MOV R0, #0x10                   ; 1 means enable digital I/O
+STR R0, [R1]
+LDR R1, =GPIO_PORTE_DATA_R
 
+MOV R9, 0; isEpressed
+MOV R8, 20; DUTY
 
-      ALIGN      ; make sure the end of this section is aligned
-      END        ; end of file
+;R3 is Temp
+MOV R5, 0;R5 is Count
+MOV R6, 0;R6 is times
+MOV R7, BIG; time before reset
+MOV R9, BIG/2;time before off
+MOV R10, #5; BreatheModifier
 
+Loop
+
+LDR R1, =GPIO_PORTE_DATA_R
+LDR R0, =GPIO_PORTF_DATA_R
+LDR R1, [R1]
+LDR R0, [R0]
+AND R2, R0, #0x10; check if f pressed
+
+AND R3, R1, #0x01 check if e pressed
+EOR R4, R9, R3
+CBNZ R4, noChange
+EOR R9, R9, #1
+CBNZ R9, noChange
+SUB R3, R8, #101
+BPL R3 here
+MOV R8, #0
+B noChange
+here ADD R8, R8, #20
+
+noChange NOP
+
+ADD R5, R5, #1
+ADD R6, R6, #1
+
+SUB R3, R8, R5
+BMI ledoff
+ADD R2, R2, #0
+BPL ledon
+SUB R3, R6, R4
+BPL ledoff
+
+ledon LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
+LDR R0, [R1]
+ORR R0, #0x01
+STR R0, [R1]
+
+ledoff
+LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
+LDR R0, [R1]
+AND R0, 0xFF0
+STR R0, [R1]
+
+SUB R3, R6, R7
+BMI noReset
+MOV R6, #0
+ADD R2, R2, #0
+CBNZ R2, noReset
+
+ADD R8, R8, R10
+ADD R8, R8, #0
+BPL notNegative
+EOR R10, R10, #-1
+ADD R10, R10, #1
+B noReset
+notNegative
+SUB R3, R8, #101
+BMI noReset
+EOR R10, R10, #-1
+ADD R10, R10, #1
+noReset NOP
+
+SUB R3, R5, #100
+BPL noCountReset
+MOV R5, #0
+noCountReset
+
+B Loop
