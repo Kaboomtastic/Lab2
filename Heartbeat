@@ -84,10 +84,13 @@ Start
 
 		MOV R9, #0; isEpressed
 		LDR R8, =DUTYDIV; DUTY
-								;R3 and R4 is Temp
-		MOV R5, #0				; R5 is Count
-		LDR R7, =DUTY		; time before reset
-		MOV R10, #5				; BreatheModifier
+		LDR R11, [R8] ; R11 = DUTYMax/5
+		LDR R8, [R8] ;R3 and R4 is Temp
+		
+		MOV R5, #0	; R5 is Count
+		LDR R7, =DUTY
+		LDR R7, [R7]	; time before reset
+		MOV R10, #500	; BreatheModifier
 
 
 loop	LDR R1, =GPIO_PORTE_DATA_R
