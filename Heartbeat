@@ -96,23 +96,16 @@ loop	LDR R1, =GPIO_PORTE_DATA_R
 		LDR R0, [R0]
 		AND R2, R0, #0x10; check if f pressed
 
-		AND R3, R1, #0x01; check if e pressed
+		AND R3, R1, #0x02; check if e pressed
 		EOR R4, R9, R3
-		CBNZ R4, noChange
-		EOR R4, R9, #1
-		CBNZ R4, noChange
+		CBZ R4, noChange
+		ADD R9, R3, #0
+		CBNZ R9, noChange
 		SUB R3, R8, R7
-		BPL here
-		MOV R8, #0
-		B noChange
-		AND R4, R4, #0		; dividing R7 by 5
-div		ADD R4, R4, #1
-		SUB R7, R7, #5
-		CMP R7, #5
-		BEQ here			; these two could possibly be replaced by BLE
 		BMI here
-		B div				; if answer is pos, branch to div
-here	ADD R8, R8, R4
+		MOV R8, #0
+					; if answer is pos, branch to div
+here		ADD R8, R8, #(DUTY/5)
 
 noChange NOP
 
