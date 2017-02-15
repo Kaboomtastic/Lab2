@@ -83,7 +83,7 @@ Start
 		LDR R1, =GPIO_PORTE_DATA_R
 
 		MOV R9, #0; isEpressed
-		LDR R8, =DUTYDIV; DUTY
+		LDR R8, =DUTYDIV ; R8 = DUTY
 		LDR R11, [R8] ; R11 = DUTYMax/5
 		LDR R8, [R8] ;R3 and R4 is Temp
 		
@@ -100,21 +100,20 @@ loop	LDR R1, =GPIO_PORTE_DATA_R
 		AND R2, R0, #0x10; check if f pressed
 
 		AND R3, R1, #0x02; check if e pressed
-		EOR R4, R9, R3
-		CBZ R4, noChange
+		EOR R4, R9, R3 ;compares e to previous value
+		CBZ R4, noChange ;if they are the same EOR returns 0 and there is no change
 		ADD R9, R3, #0
 		CBNZ R9, noChange
 		SUB R3, R8, R7
 		BMI here
 		MOV R8, #0
-					; if answer is pos, branch to div
-here		ADD R8, R8, #(DUTY/5)
+here		ADD R8, R8, R11
 
 noChange NOP
 
 		ADD R5, R5, #1
 
-		SUB R3, R8, R5
+		SUB R3, R8, R5 ;Checks if DUTY is greater than counter SUB DUTY - Counter
 		BMI ledoff
 
 ledon 	LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
@@ -128,22 +127,20 @@ ledoff	LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
 		STR R0, [R1]
 		
 ledChangedone	NOP
-		SUB R3, R5, R7
-		BMI noReset
-		MOV R5, #0
-		CBZ R2, noReset
+		SUB R3, R5, R7 ;Subtract Counter - MaxDUTY
+		BMI noReset ;If positive skip to end
+		MOV R5, #0 ;resets counter
+		CBZ R2, noReset ;if F not pressed skip to end
 
-		ADD R8, R8, R10
-		ADD R8, R8, #0
-		BPL notNegative
-		EOR R10, R10, #-1
+		ADD R8, R8, R10 ;if F is pressed add Breathe Modifier to DUTY
+		BPL notNegative ;if DUTY is positive do next test
+		EOR R10, R10, #-1 ;if DUTY is negative it flips Breathe MOdifer
 		ADD R10, R10, #1
-
 		B noReset
 notNegative NOP
-		SUB R3, R8, R7
-		BMI noReset
-		EOR R10, R10, #-1
+		SUB R3, R8, R7 ;DUTY - DUTYMax
+		BMI noReset ;if DUTY < duty max skip to end
+		EOR R10, R10, #-1 ;if DUTY > duty max flip breathe modifer
 		ADD R10, R10, #1
 noReset NOP
 
