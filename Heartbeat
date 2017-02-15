@@ -109,7 +109,7 @@ ADD R10, R10, #1
 
 B noReset
 notNegative NOP
-SUB R3, R8, #101
+SUB R3, R8, R7
 BMI noReset
 EOR R10, R10, #-1
 ADD R10, R10, #1
