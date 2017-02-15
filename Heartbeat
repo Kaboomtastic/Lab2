@@ -54,12 +54,10 @@ LDR R1, =GPIO_PORTE_DATA_R
 
 MOV R9, 0; isEpressed
 MOV R8, 20; DUTY
-
 ;R3 is Temp
 MOV R5, 0;R5 is Count
-MOV R6, 0;R6 is times
+
 MOV R7, BIG; time before reset
-MOV R9, BIG/2;time before off
 MOV R10, #5; BreatheModifier
 
 Loop
@@ -75,23 +73,18 @@ EOR R4, R9, R3
 CBNZ R4, noChange
 EOR R9, R9, #1
 CBNZ R9, noChange
-SUB R3, R8, #101
+SUB R3, R8, R7
 BPL R3 here
 MOV R8, #0
 B noChange
-here ADD R8, R8, #20
+here ADD R8, R8, (R7/5)
 
 noChange NOP
 
 ADD R5, R5, #1
-ADD R6, R6, #1
 
 SUB R3, R8, R5
 BMI ledoff
-ADD R2, R2, #0
-BPL ledon
-SUB R3, R6, R4
-BPL ledoff
 
 ledon LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
 LDR R0, [R1]
@@ -104,28 +97,24 @@ LDR R0, [R1]
 AND R0, 0xFF0
 STR R0, [R1]
 
-SUB R3, R6, R7
+SUB R3, R5, R7
 BMI noReset
-MOV R6, #0
-ADD R2, R2, #0
-CBNZ R2, noReset
+MOV R5, #0
+CBZ R2, noReset
 
 ADD R8, R8, R10
 ADD R8, R8, #0
 BPL notNegative
 EOR R10, R10, #-1
 ADD R10, R10, #1
+
 B noReset
-notNegative
+notNegative NOP
 SUB R3, R8, #101
 BMI noReset
 EOR R10, R10, #-1
 ADD R10, R10, #1
 noReset NOP
 
-SUB R3, R5, #100
-BPL noCountReset
-MOV R5, #0
-noCountReset
 
 B Loop
