@@ -121,12 +121,13 @@ ledon 	LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
 		LDR R0, [R1]
 		ORR R0, #0x02
 		STR R0, [R1]
-
+		B ledChangedone
 ledoff	LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
 		LDR R0, [R1]
 		AND R0, #0xFF
 		STR R0, [R1]
-
+		
+ledChangedone	NOP
 		SUB R3, R5, R7
 		BMI noReset
 		MOV R5, #0
