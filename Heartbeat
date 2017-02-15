@@ -53,10 +53,9 @@ STR R0, [R1]
 LDR R1, =GPIO_PORTE_DATA_R
 
 MOV R9, 0; isEpressed
-MOV R8, 20; DUTY
-;R3 is Temp
+MOV R8, BIG/5; DUTY
+;R3 and R4 is Temp
 MOV R5, 0;R5 is Count
-
 MOV R7, BIG; time before reset
 MOV R10, #5; BreatheModifier
 
@@ -74,7 +73,7 @@ CBNZ R4, noChange
 EOR R9, R9, #1
 CBNZ R9, noChange
 SUB R3, R8, R7
-BPL R3 here
+BPL R3, here
 MOV R8, #0
 B noChange
 here ADD R8, R8, (R7/5)
