@@ -39,8 +39,8 @@ GPIO_PORTF_AFSEL_R EQU 0x40025420
 GPIO_PORTF_PUR_R   EQU 0x40025510
 GPIO_PORTF_DEN_R   EQU 0x4002551C
 	
-DUTY EQU 0x989680
-DUTYDIV EQU 0x1E8480
+DUTY EQU 500000
+DUTYDIV EQU 100000
 
 SYSCTL_RCGCGPIO_R  EQU 0x400FE608
        IMPORT  TExaS_Init
@@ -83,14 +83,15 @@ Start
 		LDR R1, =GPIO_PORTE_DATA_R
 
 		MOV R9, #0; isEpressed
-		LDR R8, =DUTYDIV ; R8 = DUTY
-		LDR R11, [R8] ; R11 = DUTYMax/5
-		LDR R8, [R8] ;R3 and R4 is Temp
-		
+		LDR R11, =DUTYDIV ; R8 = DUTY
+		ADD R8, R11, #0
 		MOV R5, #0	; R5 is Count
 		LDR R7, =DUTY
-		LDR R7, [R7]	; time before reset
 		MOV R10, #500	; BreatheModifier
+		LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
+		LDR R0, [R1]
+		ORR R0, #0x01
+		STR R0, [R1]
 
 
 loop	LDR R1, =GPIO_PORTE_DATA_R
@@ -98,13 +99,14 @@ loop	LDR R1, =GPIO_PORTE_DATA_R
 		LDR R1, [R1]
 		LDR R0, [R0]
 		AND R2, R0, #0x10; check if f pressed
-		CBNZ R2, doHeartbeat
+		SUB R2, R2, #1
+		BMI doHeartbeat
 		AND R3, R1, #0x02; check if e pressed
 		EOR R4, R9, R3 ;compares e to previous value
 		CBZ R4, noChange ;if they are the same EOR returns 0 and there is no change
 		
 		ADD R9, R3, #0
-		CBNZ R9, noChange
+		CBNZ R3, noChange
 		SUB R3, R8, R7
 		BMI here
 		MOV R8, #0
@@ -112,21 +114,22 @@ here		ADD R8, R8, R11
 
 noChange 	ADD R5, R5, #1
 		SUB R3, R8, R5 ;Checks if DUTY is greater than counter SUB DUTY - Counter
-		CBZ R3, #0 ledoff
-return		SUB R3, R5, R7
-		BMI loop
+		CBZ R3, ledoff ;R3, ledoff
+		AND R4, R4, #0
+return		SUB R4, R7, R5
+		BPL loop
 		
-		MOV R5#0
+		MOV R5, #0
 		LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
 		LDR R0, [R1]
-		ORR R0, #0x02
+		ORR R0, #0x01
 		STR R0, [R1]
 		B loop
 
 
 ledoff	LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
 		LDR R0, [R1]
-		AND R0, #0xFF
+		AND R0, R0, #0xFF0
 		STR R0, [R1]
 		B return
 		
@@ -138,7 +141,8 @@ doHeartbeat	MOV R1, #0; Duty
 repeatBeat 	LDR R3, =GPIO_PORTF_DATA_R
 		LDR R3, [R3]
 		AND R3, R3, #0x10; check if f pressed
-		CBZ R3, loop
+		SUB R3, R3, #1
+		BMI loop
 		ADD R0, R0, #1; increment Counter
 		SUB R3, R1, R0;
 		BPL ledon
@@ -150,14 +154,14 @@ repeatBeat 	LDR R3, =GPIO_PORTF_DATA_R
 		B math
 
 
-ledon 		LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
+ledon 	LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
 		LDR R0, [R1]
-		ORR R0, #0x02
+		ORR R0, #0x01
 		STR R0, [R1]
 
 
 		
-Math		SUB R3, #1000, R0
+math	SUB R3, R0, #1000
 		BPL repeatBeat
 		
 		MOV R0, #0
@@ -171,9 +175,8 @@ notNegative NOP
 		BMI repeatBeat ;if DUTY < duty max skip to end
 		EOR R10, R10, #-1 ;if DUTY > duty max flip breathe modifer
 		ADD R10, R10, #1
-noReset repeatBeat
+noReset B repeatBeat
 
 
       ALIGN      ; make sure the end of this section is aligned
       END        ; end of file
-
