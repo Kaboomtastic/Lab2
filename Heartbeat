@@ -39,8 +39,8 @@ GPIO_PORTF_AFSEL_R EQU 0x40025420
 GPIO_PORTF_PUR_R   EQU 0x40025510
 GPIO_PORTF_DEN_R   EQU 0x4002551C
 	
-DUTY EQU 500000
-DUTYDIV EQU 100000
+DUTY EQU 1000000
+DUTYDIV EQU 200000
 
 SYSCTL_RCGCGPIO_R  EQU 0x400FE608
        IMPORT  TExaS_Init
@@ -99,7 +99,7 @@ loop	LDR R1, =GPIO_PORTE_DATA_R
 		LDR R1, [R1]
 		LDR R0, [R0]
 		AND R2, R0, #0x10; check if f pressed
-		SUB R2, R2, #1
+		SUBS R2, R2, #1
 		BMI doHeartbeat
 		AND R3, R1, #0x02; check if e pressed
 		EOR R4, R9, R3 ;compares e to previous value
@@ -107,16 +107,18 @@ loop	LDR R1, =GPIO_PORTE_DATA_R
 		
 		ADD R9, R3, #0
 		CBNZ R3, noChange
-		SUB R3, R8, R7
+		SUBS R3, R8, R7
+		ADDS R3, R3, #1
 		BMI here
 		MOV R8, #0
+		B noChange
 here		ADD R8, R8, R11
 
-noChange 	ADD R5, R5, #1
-		SUB R3, R8, R5 ;Checks if DUTY is greater than counter SUB DUTY - Counter
+noChange SUBS R3, R8, R5 ;Checks if DUTY is greater than counter SUB DUTY - Counter
+		ADD R5, R5, #1
 		CBZ R3, ledoff ;R3, ledoff
 		AND R4, R4, #0
-return		SUB R4, R7, R5
+return	CMP R7, R5
 		BPL loop
 		
 		MOV R5, #0
