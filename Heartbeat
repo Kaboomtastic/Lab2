@@ -39,8 +39,9 @@ GPIO_PORTF_AFSEL_R EQU 0x40025420
 GPIO_PORTF_PUR_R   EQU 0x40025510
 GPIO_PORTF_DEN_R   EQU 0x4002551C
 	
-DUTY EQU 1000000
-DUTYDIV EQU 200000
+DUTY EQU 416665 ;41665 for sim 347220 on board
+DUTYDIV EQU 83333 ;83333 for sim 69444 on board
+small EQU 10000
 
 SYSCTL_RCGCGPIO_R  EQU 0x400FE608
        IMPORT  TExaS_Init
@@ -137,43 +138,44 @@ ledoff	LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
 		
 		
 
-doHeartbeat	MOV R1, #0; Duty
+doHeartbeat	MOV R1, #100; Duty
 		MOV R0, #0; Counter
 		MOV R10, #10; Breathe Modifier
+		LDR R12, =small
 repeatBeat 	LDR R3, =GPIO_PORTF_DATA_R
 		LDR R3, [R3]
 		AND R3, R3, #0x10; check if f pressed
-		SUB R3, R3, #1
-		BMI loop
+		SUBS R3, R3, #1
+		BPL loop
 		ADD R0, R0, #1; increment Counter
-		SUB R3, R1, R0;
+		SUBS R3, R1, R0;
 		BPL ledon
 		
-		LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
-		LDR R0, [R1]
-		AND R0, #0xFF
-		STR R0, [R1]
+		LDR R2, =GPIO_PORTE_DATA_R	; turn LED off
+		LDR R3, [R2]
+		AND R3, #0xFE
+		STR R3, [R2]
 		B math
 
 
-ledon 	LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
-		LDR R0, [R1]
-		ORR R0, #0x01
-		STR R0, [R1]
+ledon 	LDR R2, =GPIO_PORTE_DATA_R	; turn LED on
+		LDR R3, [R2]
+		ORR R3, #0x01
+		STR R3, [R2]
 
 
 		
-math	SUB R3, R0, #1000
-		BPL repeatBeat
+math	SUBS R3, R0, R12
+		BMI repeatBeat
 		
 		MOV R0, #0
-		ADD R3, R1, R10 ;add Breathe Modifier to DUTY
+		ADDS R1, R1, R10 ;add Breathe Modifier to DUTY
 		BPL notNegative ;if DUTY is positive do next test
 		EOR R10, R10, #-1 ;if DUTY is negative it flips Breathe MOdifer
 		ADD R10, R10, #1
 		B repeatBeat
 notNegative NOP
-		SUB R3, R1, #1000 ;DUTY - DUTYMax
+		SUBS R3, R1, R12 ;DUTY - DUTYMax
 		BMI repeatBeat ;if DUTY < duty max skip to end
 		EOR R10, R10, #-1 ;if DUTY > duty max flip breathe modifer
 		ADD R10, R10, #1
