@@ -98,10 +98,11 @@ loop	LDR R1, =GPIO_PORTE_DATA_R
 		LDR R1, [R1]
 		LDR R0, [R0]
 		AND R2, R0, #0x10; check if f pressed
-
+		CBNZ R2, doHeartbeat
 		AND R3, R1, #0x02; check if e pressed
 		EOR R4, R9, R3 ;compares e to previous value
 		CBZ R4, noChange ;if they are the same EOR returns 0 and there is no change
+		
 		ADD R9, R3, #0
 		CBNZ R9, noChange
 		SUB R3, R8, R7
@@ -109,43 +110,69 @@ loop	LDR R1, =GPIO_PORTE_DATA_R
 		MOV R8, #0
 here		ADD R8, R8, R11
 
-noChange NOP
-
-		ADD R5, R5, #1
-
+noChange 	ADD R5, R5, #1
 		SUB R3, R8, R5 ;Checks if DUTY is greater than counter SUB DUTY - Counter
-		BMI ledoff
-
-ledon 	LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
+		CBZ R3, #0 ledoff
+return		SUB R3, R5, R7
+		BMI loop
+		
+		MOV R5#0
+		LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
 		LDR R0, [R1]
 		ORR R0, #0x02
 		STR R0, [R1]
-		B ledChangedone
+		B loop
+
+
 ledoff	LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
 		LDR R0, [R1]
 		AND R0, #0xFF
 		STR R0, [R1]
+		B return
 		
-ledChangedone	NOP
-		SUB R3, R5, R7 ;Subtract Counter - MaxDUTY
-		BMI noReset ;If positive skip to end
-		MOV R5, #0 ;resets counter
-		CBZ R2, noReset ;if F not pressed skip to end
+		
 
-		ADD R8, R8, R10 ;if F is pressed add Breathe Modifier to DUTY
+doHeartbeat	MOV R1, #0; Duty
+		MOV R0, #0; Counter
+		MOV R10, #10; Breathe Modifier
+repeatBeat 	LDR R3, =GPIO_PORTF_DATA_R
+		LDR R3, [R3]
+		AND R3, R3, #0x10; check if f pressed
+		CBZ R3, loop
+		ADD R0, R0, #1; increment Counter
+		SUB R3, R1, R0;
+		BPL ledon
+		
+		LDR R1, =GPIO_PORTE_DATA_R	; turn LED off
+		LDR R0, [R1]
+		AND R0, #0xFF
+		STR R0, [R1]
+		B math
+
+
+ledon 		LDR R1, =GPIO_PORTE_DATA_R	; turn LED on
+		LDR R0, [R1]
+		ORR R0, #0x02
+		STR R0, [R1]
+
+
+		
+Math		SUB R3, #1000, R0
+		BPL repeatBeat
+		
+		MOV R0, #0
+		ADD R3, R1, R10 ;add Breathe Modifier to DUTY
 		BPL notNegative ;if DUTY is positive do next test
 		EOR R10, R10, #-1 ;if DUTY is negative it flips Breathe MOdifer
 		ADD R10, R10, #1
-		B noReset
+		B repeatBeat
 notNegative NOP
-		SUB R3, R8, R7 ;DUTY - DUTYMax
-		BMI noReset ;if DUTY < duty max skip to end
+		SUB R3, R1, #1000 ;DUTY - DUTYMax
+		BMI repeatBeat ;if DUTY < duty max skip to end
 		EOR R10, R10, #-1 ;if DUTY > duty max flip breathe modifer
 		ADD R10, R10, #1
-noReset NOP
+noReset repeatBeat
 
-
-		B loop
 
       ALIGN      ; make sure the end of this section is aligned
       END        ; end of file
