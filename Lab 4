@@ -1,0 +1,41 @@
+Better Lab 2
+
+      LDR portData, =GPIO_PORTE_DATA_R
+
+loop
+
+TurnOn MOV Counter, DUTY
+       Turn LEDon
+       BL DELAY
+       SUBS CollectCount, CollectCount, #1
+       BPL Collect Data
+
+TurnOFF SUBS Temp, MAX, DUTY
+       MOV Counter, Temp
+       Turn LEDoff
+       BL DELAY
+       SUBS CollectCount, CollectCount, #1
+       BPL Collect Data
+       B loop
+
+
+isPressed Collect Data < we'll define this later
+Stall     LDR R3, portData
+          AND R3, mask
+          CBZ Stall
+          MOV CollectCount, 7
+          ADD DUTY, DUTY, DutyModifier
+          CMP DUTY, MAX
+          BGT return
+          MOV DUTY, #0
+          BX return
+
+CollectData - do some stuff
+
+
+DELAY LDR R3, PortData
+      AND R3, mask; edit this later
+      CBNZ isPressed
+return SUBS Counter, Counter, #1
+      CBNZ DELAY
+      BX LR
