@@ -1,41 +1,250 @@
-Better Lab 2
+;****************** main.s ***************
+; Program written by: Isabelle Rogers and James Sullivan
+; Date Created: 2/14/2017
+; Last Modified: 2/14/2017
+; Brief description of the program
+;   The LED toggles at 8 Hz and a varying duty-cycle
+;   Repeat the functionality from Lab2-3 but now we want you to 
+;   insert debugging instruments which gather data (state and timing)
+;   to verify that the system is functioning as expected.
+; Hardware connections (External: One button and one LED)
+;  PE1 is Button input  (1 means pressed, 0 means not pressed)
+;  PE0 is LED output (1 activates external LED on protoboard)
+;  PF2 is Blue LED on Launchpad used as a heartbeat
+; Instrumentation data to be gathered is as follows:
+; After Button(PE1) press collect one state and time entry. 
+; After Buttin(PE1) release, collect 7 state and
+; time entries on each change in state of the LED(PE0): 
+; An entry is one 8-bit entry in the Data Buffer and one 
+; 32-bit entry in the Time Buffer
+;  The Data Buffer entry (byte) content has:
+;    Lower nibble is state of LED (PE0)
+;    Higher nibble is state of Button (PE1)
+;  The Time Buffer entry (32-bit) has:
+;    24-bit value of the SysTick's Current register (NVIC_ST_CURRENT_R)
+; Note: The size of both buffers is 50 entries. Once you fill these
+;       entries you should stop collecting data
+; The heartbeat is an indicator of the running of the program. 
+; On each iteration of the main loop of your program toggle the 
+; LED to indicate that your code(system) is live (not stuck or dead).
 
-      LDR portData, =GPIO_PORTE_DATA_R
+GPIO_PORTE_DATA_R	EQU 0x400243FC
+GPIO_PORTE_DIR_R	EQU 0x40024400
+GPIO_PORTE_AFSEL_R	EQU 0x40024420
+GPIO_PORTE_DEN_R	EQU 0x4002451C
 
-loop
+GPIO_PORTF_DATA_R	EQU 0x400253FC
+GPIO_PORTF_DIR_R	EQU 0x40025400
+GPIO_PORTF_AFSEL_R	EQU 0x40025420
+GPIO_PORTF_PUR_R	EQU 0x40025510
+GPIO_PORTF_DEN_R 	EQU 0x4002551C
+SYSCTL_RCGCGPIO_R	EQU 0x400FE608
+NVIC_ST_CURRENT_R   EQU 0xE000E018
 
-TurnOn MOV Counter, DUTY
-       Turn LEDon
-       BL DELAY
-       SUBS CollectCount, CollectCount, #1
-       BPL Collect Data
-
-TurnOFF SUBS Temp, MAX, DUTY
-       MOV Counter, Temp
-       Turn LEDoff
-       BL DELAY
-       SUBS CollectCount, CollectCount, #1
-       BPL Collect Data
-       B loop
-
-
-isPressed Collect Data < we'll define this later
-Stall     LDR R3, portData
-          AND R3, mask
-          CBZ Stall
-          MOV CollectCount, 7
-          ADD DUTY, DUTY, DutyModifier
-          CMP DUTY, MAX
-          BGT return
-          MOV DUTY, #0
-          BX return
-
-CollectData - do some stuff
+Counter				RN R6
+CurrentDuty			RN R8
+DutyModifier		RN R10
+Temp				RN R5
+PortData			RN R9
+CollectCount		RN R7
+DutyMax				RN R11
 
 
-DELAY LDR R3, PortData
-      AND R3, mask; edit this later
-      CBNZ isPressed
-return SUBS Counter, Counter, #1
-      CBNZ DELAY
-      BX LR
+DUTY EQU 8000000
+DUTYDIV EQU 160000
+; RAM Area
+           AREA    DATA, ALIGN=2
+;-UUU-Declare  and allocate space for your Buffers 
+;    and any variables (like pointers and counters) here
+
+DataBuffer	SPACE 50
+TimeBuffer	SPACE 200
+DataPt		SPACE 4
+TimePt		SPACE 4
+NEntries	SPACE 1
+
+
+; ROM Area
+       IMPORT  TExaS_Init
+	   IMPORT SysTick_Init
+;-UUU-Import routine(s) from other assembly files (like SysTick.s) here
+       AREA    |.text|, CODE, READONLY, ALIGN=2
+       THUMB
+       EXPORT  Start
+
+Start
+		LDR R1, =SYSCTL_RCGCGPIO_R      ; 1) activate clock for Port E and F
+		LDR R0, [R1]
+		ORR R0, R0, #0x30               ; set bit 4 and 5 to turn on clock
+		STR R0, [R1]
+		NOP
+		NOP                             ; allow time for clock to finish
+										; TExaS_Init sets bus clock at 80 MHz
+		BL  TExaS_Init ; voltmeter, scope on PD3
+		CPSIE  I    ; TExaS voltmeter, scope runs on interrupts
+		LDR R1, =GPIO_PORTE_DIR_R       ; 5) set direction register
+		MOV R0, #0x01                    ; PE0 = output, PE1 = input
+		STR R0, [R1]
+		LDR R1, =GPIO_PORTE_AFSEL_R     ; 6) regular port function
+		MOV R0, #0                      ; 0 means disable alternate function
+		STR R0, [R1]
+		LDR R1, =GPIO_PORTE_DEN_R       ; 7) enable Port E digital port
+		MOV R0, #0x03                   ; 1 means enable digital I/O
+		STR R0, [R1]
+		LDR R1, =GPIO_PORTF_DIR_R       ; 5) set direction register
+		MOV R0, #0x04                    ; PF4 is input and PF2 is output
+		STR R0, [R1]
+		LDR R1, =GPIO_PORTF_AFSEL_R     ; 6) regular port function
+		MOV R0, #0                      ; 0 means disable alternate function
+		STR R0, [R1]
+		LDR R1, =GPIO_PORTF_PUR_R       ; pull-up resistors for PF4,PF0
+		MOV R0, #0x10                   ; enable weak pull-up on PF0 and PF4
+		STR R0, [R1]
+		LDR R1, =GPIO_PORTF_DEN_R       ; 7) enable Port F digital port
+		MOV R0, #0x14                   ; 1 means enable digital I/O
+		STR R0, [R1]
+		LDR R1, =GPIO_PORTE_DATA_R
+		
+		LDR R0, =DataBuffer	; initializing array pointers with first
+		LDR R1, =DataPt		; address of array
+		STR R0, [R1]
+		LDR R0, =TimeBuffer
+		LDR R1, =TimePt
+		STR R0, [R1]
+		
+		LDR DutyModifier, =DUTYDIV ; R8 = DUTY
+		ADD CurrentDuty, DutyModifier, #0
+		MOV Counter, #0	; R5 is Count
+		LDR DutyMax, =DUTY
+		LDR PortData, =GPIO_PORTE_DATA_R
+		BL Debug_Init
+		B loop
+		
+ledon	LDR Temp, [PortData]	; turn LED on
+		ORR Temp, #0x01
+		STR Temp, [PortData]
+		BX LR
+		
+loop	BL BlueToggle
+TurnOn	MOV Counter, CurrentDuty
+		BL ledon
+		BL Delay
+		CBZ CollectCount, TurnOff
+		SUB CollectCount, CollectCount, #1
+		BL Debug_Capture
+		
+TurnOff	SUBS Temp, DutyMax, CurrentDuty
+		MOV Counter, Temp
+		BL ledoff								; change this branch
+		BL Delay
+		CBZ CollectCount, here
+		SUB CollectCount, CollectCount, #1
+		BL Debug_Capture
+here	B loop
+
+isPressed MOV R12, LR
+		BL Debug_Capture
+		MOV LR, R12
+wait	LDR Temp, [PortData]
+		AND Temp, #0x2
+		SUBS Temp, Temp, #1
+		BPL wait
+		MOV CollectCount, #7
+		ADD CurrentDuty, CurrentDuty, DutyModifier
+		SUBS Temp, DutyMax, CurrentDuty
+		BPL return
+		MOV CurrentDuty, #0
+		B return
+
+Delay 	LDR Temp, [PortData]
+		AND Temp, Temp, #0x2
+		SUBS Temp, Temp, #1
+		BPL isPressed
+return	SUBS Counter, Counter, #1
+		BPL Delay
+		BX LR
+		
+ledoff	LDR Temp, [PortData]	; turn LED off
+		AND Temp, Temp, #0xFF0
+		STR Temp, [PortData]
+		BX LR
+		
+Debug_Init
+			PUSH {R1, LR}
+			BL SysTick_Init			; activate SysTick Timer
+			LDR R0, =DataPt			; initialize Data Array with xFF
+			LDR R3, [R0]			; R3 has first address of array
+			MOV R1, #0xFF
+			ADD R2, R3, #49
+DataL		STR R1, [R3]
+			ADD R3, R3, #1
+			STR R3, [R0]
+			CMP R3, R2
+			BEQ Init_TimePt
+			B DataL
+Init_TimePt	LDR R0, =TimePt			; initialize Time Array with xFF
+			LDR R3, [R0]			; R3 has first address of array
+			ADD R2, R3, #199
+TimeL		STR R1, [R3]
+			ADD R3, R3, #1
+			STR R3, [R0]
+			CMP R3, R2
+			BNE TimeL
+			LDR R0, =DataBuffer	; initializing array pointers with first
+			LDR R1, =DataPt		; address of array
+			STR R0, [R1]
+			LDR R0, =TimeBuffer
+			LDR R1, =TimePt
+			STR R0, [R1]
+			POP {R1, LR}
+			BX LR
+			
+Debug_Capture
+			PUSH {R0, R1, R2, R3, R4, R5}
+			LDR R0, =NEntries	; return immediately if there is a max of 
+			LDRB R0, [R0]		; 50 entries
+			CMP R0, #50
+			BEQ break
+			LDR R4, =DataPt		; R4 has address of pointer
+			LDR R2, [R4]		; R2 has pointer
+			LDR R0, =GPIO_PORTE_DATA_R	; storing Port E data into array
+			LDR R1, [R0]
+			AND R1, R1, #0x02			; move PE1 to bit 4
+			LSL R1, #3
+			LDR R0, [R0]				; PE0 in bit 0
+			AND R0, R0, #0x01
+			ADD R1, R1, R0
+			STR R1, [R2]
+			ADD R2, R2, #1				; increment DataPt
+			STR R2, [R4]
+			LDR R0, =NVIC_ST_CURRENT_R	; storing SysTick data into array
+			LDR R1, [R0]
+			LDR R2, =TimePt
+			LDR R3, [R2]
+			STR R1, [R3]
+			ADD R3, R3, #4				; increment TimePt
+			STR R3, [R2]
+			LDR R0, =NEntries
+			LDRB R1, [R0]
+			ADD R1, R1, #1
+			STR R1, [R0]
+			POP {R0, R1, R2, R3, R4, R5}
+break		BX LR
+			
+;;;;; Part C: Estimating Intrusiveness
+;;;;; 30 instructions * 2 = 60
+;;;;; Execution Time: 60 * 12.5 ns = 750 ns
+;;;;; Overhead percentage: (100 * exec time)/ time for one 8 Hz cycle
+;;;;; Time for one 8 Hz cycle is 125 ms or 125000000 ns
+;;;;; (100 * 750)/125000000 = 0.006 or 0.6%
+
+BlueToggle	LDR R0, =GPIO_PORTF_DATA_R
+			LDR R1, [R0]
+			EOR R1, R1, #0x04
+			STR R1, [R0]
+			BX LR
+			
+			
+      ALIGN      ; make sure the end of this section is aligned
+      END        ; end of file
+
