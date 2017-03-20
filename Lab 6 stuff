@@ -1,0 +1,55 @@
+Lab 6 Stuff
+
+
+uint8_t power = 0;
+uint32_t powerDuration = 0;
+uint8_t modifier = 1;
+uint8_t count = 0;
+uint8_t count2 = 0;
+
+typedef struct song(){
+  note Notes [] = {};
+  uint32_t noteDuration [] = {};
+  uint16_t numberOfNotes;
+} songOfStorms;
+
+typedf struct note(){
+  uint16_t frequency = ;
+  uint16_t delay = ; //clock speed/ frequency
+  uint16_t power [] = { };
+} A, B, C, D, E, F, G, CurrentNote;
+
+
+UpdatePower(){    //this is the interrupt routine
+  output = CurrentNote.power[count];
+  clear interrupt flag
+  SysTick = CurrentNote.delay[];
+  if(count < #ofPowers){
+    count++;
+  }else{
+    count = 0;
+  }
+}
+
+PlaySound(note a){
+  CurrentNote = a;
+  count = 0;
+  enable interrupt and then go to it
+}
+
+SongStart(){
+  enable song interrupt;  
+}
+
+SongPause(){
+ disable song interrupt;
+}
+
+SongInterrupt(){
+  PlaySound( songOfStorms.Notes[count2]);
+  count2++;
+  SysTick2 = songOfStorms.noteDuration[count2];
+  if(count2 == songOfStorms.numberOfNotes){
+    count2 = 0;
+  }
+}
