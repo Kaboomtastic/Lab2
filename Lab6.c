@@ -15,6 +15,7 @@
 #include "Sound.h"
 #include "Piano.h"
 #include "TExaS.h"
+#include "Timer0A.h"
 
 // basic functions defined at end of startup.s
 void DisableInterrupts(void); // Disable interrupts
@@ -22,7 +23,6 @@ void EnableInterrupts(void);  // Enable interrupts
 
 uint8_t power = 0;
 uint32_t powerDuration = 0;
-uint8_t modifier = 1;
 uint8_t count = 0;
 uint8_t count2 = 0;
 
@@ -34,23 +34,29 @@ typedef struct note{
 }note;
 
 typedef struct song{
-  note Notes [40];
-  uint32_t noteDuration[40];
+  uint8_t notes [3];
+  uint32_t noteDuration[3];
   uint16_t numberOfNotes;
 } song;
 
-song songOfStorms;
+
 
 uint8_t CurrentNote;
 note Notes []  ={ {440,4545,{32,37,42,47,51,55,58,61,62,63,63,63,62,61,58,55,51,47,42,37,32,27,22,17,13,9,6,3,2,0,0,0,2,3,6,9,13,17,22,27}},
 {494,4048,{32,37,42,47,51,55,58,61,62,63,63,63,62,61,58,55,51,47,42,37,32,27,22,17,13,9,6,3,2,0,0,0,2,3,6,9,13,17,22,27}},
  {523,3824,{32,37,42,47,51,55,58,61,62,63,63,63,62,61,58,55,51,47,42,37,32,27,22,17,13,9,6,3,2,0,0,0,2,3,6,9,13,17,22,27}},
 	{0,10000,{0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0,0}}};
+
+
+song songOfStorms = {{0,1,2},{100000,100000,100000},3};
+
+
+ 		
 void SysTick_Handler(){    //this is the interrupt routine
   GPIO_PORTB_DATA_R = Notes[CurrentNote].power[count];
   //NVIC_ST_CTRL_R = NVIC_ST_CTRL_R & 0xFFFFFFD;
-  NVIC_ST_CURRENT_R = Notes[CurrentNote].delay;
-  if(count < 40){
+  NVIC_ST_RELOAD_R = Notes[CurrentNote].delay;
+  if(count < 39){
     count++;
   }else{
     count = 0;
@@ -63,20 +69,21 @@ void PlaySound(uint8_t a){
 	SysTick_Handler();
 }
 
-/*void Timer0A_Handler(){
-  PlaySound( songOfStorms.Notes[count2]);
-  count2++;
-  S = songOfStorms.noteDuration[count2];
-  if(count2 == songOfStorms.numberOfNotes){
+void UserTask(void){
+ PlaySound( songOfStorms.notes[count2]);
+	count2++;
+  if(count2 == (songOfStorms.numberOfNotes)){
     count2 = 0;
   }
-} */
+}
 
 
 int main(void){      
   TExaS_Init(SW_PIN_PE3210,DAC_PIN_PB3210,ScopeOn);    // bus clock at 80 MHz
   Piano_Init();
   Sound_Init(0);
+	
+	EnableInterrupts();
   // other initialization
   EnableInterrupts();
   while(1){ 
@@ -87,8 +94,9 @@ int main(void){
 			case 0x01: PlaySound(0); break;
 			case 0x02: PlaySound(1); break;
 			case 0x04: PlaySound(2); break;
-		}while(input != 0){
-			input = Piano_In();
+			case 0x03: Timer0A_Init(&UserTask, 160000000); break;
+		}while(Piano_In() == input){
+			
 		}
   }    
 }
